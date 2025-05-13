@@ -1,4 +1,4 @@
-import Game from "../Components/Game.tsx";
+import Game from "../Components/Game/Game.tsx";
 
 type MapPageProps = {
   avatar: string;
