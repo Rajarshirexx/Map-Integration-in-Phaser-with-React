@@ -21,7 +21,7 @@ const AvatarSelector: React.FC<Props> = ({ onSelect }) => {
   };
 
   return (
-    <div className="h-screen w-screen flex justify-center items-center bg-gradient-to-br from-yellow-300 to-red-400 p-20">
+    <div className="h-screen w-screen flex justify-center items-center bg-gradient-to-br from-yellow-300 to-orange-400 p-20">
       <div className="bg-gradient-to-br from-green-200 to-pink-400  shadow-2xl rounded-xl p-6 w-full max-w-4xl border border-gray-200">
         <h2 className="text-center text-3xl font-bold text-gray-800 mb-6">Select Your Avatar</h2>
 
