@@ -8,51 +8,81 @@ const server = http.createServer(app);
 
 const io = socketIo(server, {
   cors: {
-    origin: "http://localhost:3000",
+    origin: "http://localhost:3000", // your frontend origin
     methods: ["GET", "POST"],
     credentials: true,
   },
 });
 
-let players = {};
+// Store rooms data: roomId -> { socketId -> playerData }
+const rooms = {};
 
 app.use(cors());
 
 io.on("connection", (socket) => {
-  console.log("User connected:", socket.id);
+  const roomId = socket.handshake.query.roomId;
 
-  // Send current players to new client
-  socket.emit("playersUpdate", players);
+  if (!roomId) {
+    console.warn("Missing roomId. Disconnecting socket:", socket.id);
+    return socket.disconnect(true);
+  }
 
+  console.log(`✅ Socket ${socket.id} connected to room ${roomId}`);
+  socket.join(roomId);
+
+  rooms[roomId] ||= {};
+
+  // Send existing players to this socket
+  socket.emit("playersUpdate", rooms[roomId]);
+
+  // New player joins
   socket.on("newPlayer", ({ username, avatar }) => {
-    players[socket.id] = {
+    rooms[roomId][socket.id] = {
       username,
       avatar,
       x: 400,
       y: 300,
       direction: "",
     };
-    io.emit("playersUpdate", players);
+
+    io.to(roomId).emit("playersUpdate", rooms[roomId]);
+    console.log(`🟢 ${username} joined ${roomId}`);
   });
 
+  // Player moves
   socket.on("move", ({ x, y, direction, avatar }) => {
-    if (players[socket.id]) {
-      players[socket.id].x = x;
-      players[socket.id].y = y;
-      players[socket.id].direction = direction;
-      players[socket.id].avatar = avatar /* || players[socket.id].avatar */;
+    const player = rooms[roomId]?.[socket.id];
+    if (player) {
+      rooms[roomId][socket.id] = {
+        ...player,
+        x,
+        y,
+        direction,
+        avatar,
+      };
 
-      io.emit("playersUpdate", players);
+      io.to(roomId).emit("playersUpdate", rooms[roomId]);
     }
   });
 
+  // Player disconnects
   socket.on("disconnect", () => {
-    console.log("User disconnected:", socket.id);
-    delete players[socket.id];
-    io.emit("playersUpdate", players);
+    if (rooms[roomId]?.[socket.id]) {
+      const username = rooms[roomId][socket.id]?.username || "A player";
+      console.log(`❌ ${username} left room ${roomId}`);
+
+      delete rooms[roomId][socket.id];
+
+      io.to(roomId).emit("playersUpdate", rooms[roomId]);
+
+      if (Object.keys(rooms[roomId]).length === 0) {
+        delete rooms[roomId];
+        console.log(`🧹 Room ${roomId} cleaned up (empty).`);
+      }
+    }
   });
 });
 
 server.listen(4000, () => {
-  console.log("Server listening on http://localhost:4000");
+  console.log("🚀 Server running at http://localhost:4000");
 });

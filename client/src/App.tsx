@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from "react";
-import AvatarSelector from "./Pages/AvatarSelector.tsx";
-import MapPage from "./Pages/Map.tsx";
+import AvatarSelector from "./Pages/AvatarSelector";
+import HostSession from "./Pages/HostSession";
+import JoinSession from "./Pages/JoinSession";
+import PlayRoom from "./Pages/Playroom";
 import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 
 const App: React.FC = () => {
@@ -13,10 +15,14 @@ const App: React.FC = () => {
   }, [selectedAvatar]);
 
   return (
+    
       <Routes>
         <Route path="/" element={<AvatarSelector onSelect={setSelectedAvatar} />} />
-        <Route path="/map" element={<MapPage avatar={selectedAvatar} />} />
+        <Route path="/host" element={<HostSession avatar={selectedAvatar} />} />
+        <Route path="/join/:sessionId" element={<JoinSession avatar={selectedAvatar} />} />
+        <Route path="/play/:sessionId" element={<PlayRoom avatar={selectedAvatar} />} />
       </Routes>
+    
   );
 };
 
