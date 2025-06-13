@@ -2,11 +2,10 @@ import React, { useEffect, useRef } from "react";
 import Phaser from "phaser";
 import { useNavigate } from "react-router-dom";
 import Map1Scene from "./Scenes/Map1Scene";
+import Map2Scene from "./Scenes/Map2Scene";
 import { io, Socket } from "socket.io-client";
 
-type GameProps = {
-  avatar: string;
-};
+type GameProps = { avatar: string };
 
 const Game: React.FC<GameProps> = ({ avatar }) => {
   const gameRef = useRef<HTMLDivElement>(null);
@@ -21,49 +20,42 @@ const Game: React.FC<GameProps> = ({ avatar }) => {
         reconnectionAttempts: 5,
         reconnectionDelay: 1000,
       });
-
       socketRef.current = socket;
 
       socket.on("connect", () => {
         console.log("Connected with socket id:", socket.id);
-        const username = `Player_${Math.floor(Math.random() * 1000)}`;
-        socket.emit("newPlayer", { username, avatar });
-
-        // Create Phaser scene after socket connection
-        const scene = new Map1Scene(avatar, socket, socket.id);
+        socket.emit("newPlayer", { username: `Player_${Math.floor(Math.random()*1000)}`, avatar });
 
         const config: Phaser.Types.Core.GameConfig = {
           type: Phaser.AUTO,
           parent: gameRef.current!,
           width: gameRef.current!.clientWidth,
           height: gameRef.current!.clientHeight,
-          scene,
-          scale: {
-            mode: Phaser.Scale.RESIZE,
-            autoCenter: Phaser.Scale.CENTER_BOTH,
-          },
-          physics: {
-            default: "arcade",
-            arcade: { debug: false },
-          },
+          physics: { default: "arcade", arcade: { debug: false } },
+          scale: { mode: Phaser.Scale.RESIZE, autoCenter: Phaser.Scale.CENTER_BOTH },
           backgroundColor: "#000000",
+          scene: [/* Map1Scene,  */Map2Scene],
         };
 
         gameInstanceRef.current = new Phaser.Game(config);
+
+        // Start Map1 by default, switch later with scene.start
+        gameInstanceRef.current.scene.start("Map2Scene", {
+          avatar,
+          socket,
+          socketId: socket.id,
+        });
       });
     }
 
     const handleResize = () => {
-      if (gameInstanceRef.current && gameInstanceRef.current.scale) {
-        gameInstanceRef.current.scale.resize(
-          gameRef.current!.clientWidth,
-          gameRef.current!.clientHeight
-        );
-      }
+      gameInstanceRef.current?.scale.resize(
+        gameRef.current!.clientWidth,
+        gameRef.current!.clientHeight
+      );
     };
 
     window.addEventListener("resize", handleResize);
-
     return () => {
       window.removeEventListener("resize", handleResize);
       gameInstanceRef.current?.destroy(true);
@@ -81,14 +73,10 @@ const Game: React.FC<GameProps> = ({ avatar }) => {
 
   return (
     <div className="relative w-full h-full">
-      <div
-        ref={gameRef}
-        className="w-full h-full"
-        style={{ overflow: "hidden" }}
-      />
+      <div ref={gameRef} className="w-full h-full" style={{ overflow: "hidden" }} />
       <button
         onClick={handleDisconnect}
-        className="absolute top-4 right-4 px-4 py-2 bg-red-500 text-white rounded-md shadow-md z-50 hover:bg-red-600 cursor-pointer"
+        className="absolute top-4 right-4 px-4 py-2 bg-red-500 text-white rounded-md z-50 hover:bg-red-600"
       >
         Disconnect
       </button>

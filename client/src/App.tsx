@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import AvatarSelector from "./Pages/AvatarSelector.tsx";
 import MapPage from "./Pages/Map.tsx";
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import {  Routes, Route } from "react-router-dom";
 
 const App: React.FC = () => {
   const [selectedAvatar, setSelectedAvatar] = useState<string>(() => {
