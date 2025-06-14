@@ -25,6 +25,9 @@ export default class Map2Scene extends Phaser.Scene {
   private otherPlayers: { [id: string]: Phaser.Physics.Arcade.Sprite } = {};
   private loadedAvatars: Set<string> = new Set();
 
+  private privateAreaText?: Phaser.GameObjects.Text;
+  private receptionistText?: Phaser.GameObjects.Text;
+
   constructor() {
     super("Map2Scene");
   }
@@ -39,6 +42,10 @@ export default class Map2Scene extends Phaser.Scene {
     this.load.image("Floors_only_48x48", "/assets/Floors_only_48x48.png");
     this.load.image("Room_Builder_48x48", "/assets/Room_Builder_48x48.png");
     this.load.image("Conference", "/assets/Conference.png");
+    this.load.image("Generic", "/assets/Generic.png");
+    this.load.image("basement", "/assets/basement.png");
+    this.load.image("library", "/assets/library.png");
+
     this.load.tilemapTiledJSON("map", "/assets/auditorium.tmj");
 
     const avatarKey = this.getAvatarKey(this.avatar);
@@ -46,37 +53,93 @@ export default class Map2Scene extends Phaser.Scene {
       frameWidth: 48,
       frameHeight: 96,
     });
+
+    this.load.spritesheet("receptionist", "/assets/receptionist.png", {
+      frameWidth: 48,
+      frameHeight: 48,
+    });
   }
 
   create() {
     this.map = this.make.tilemap({ key: "map" });
 
-    const tileset1 = this.map.addTilesetImage("Floors_only_48x48", "Floors_only_48x48");
-    const tileset2 = this.map.addTilesetImage("Room_Builder_48x48", "Room_Builder_48x48");
+    const tileset1 = this.map.addTilesetImage(
+      "Floors_only_48x48",
+      "Floors_only_48x48"
+    );
+    const tileset2 = this.map.addTilesetImage(
+      "Room_Builder_48x48",
+      "Room_Builder_48x48"
+    );
     const tileset3 = this.map.addTilesetImage("Conference", "Conference");
+    const tileset4 = this.map.addTilesetImage("Generic", "Generic");
+    const tileset5 = this.map.addTilesetImage("basement", "basement");
+    const tileset6 = this.map.addTilesetImage("library", "library");
 
-    const floorLayer = this.map.createLayer("Floor", [tileset1], 0, 0);
+    this.map.createLayer("Floor", [tileset1, tileset2], 0, 0);
     const stageLayer = this.map.createLayer("Stage", [tileset3], 0, 0);
     const wallLayer = this.map.createLayer("Wall", [tileset2], 0, 0);
-    const monitorLayer = this.map.createLayer("Monitor", [tileset3], 0, 0);
+    this.map.createLayer("Monitor", [tileset3], 0, 0);
+    const DecorLayer = this.map.createLayer(
+      "Decor",
+      [tileset4, tileset5, tileset6],
+      0,
+      0
+    );
+    const wallLayer2 = this.map.createLayer("Wall2", [tileset2], 0, 0);
+    const PrivateZoneLayer = this.map.createLayer("PrivateZone", [tileset4], 0, 0);
+    const ReceptionLayer = this.map.createLayer("Reception", [tileset4, tileset5, tileset6], 0, 0);
+    const Decor2Layer = this.map.createLayer(
+      "Decor2",
+      [tileset4, tileset5, tileset6],
+      0,
+      0
+    );
 
     wallLayer.setCollisionFromCollisionGroup();
+    wallLayer2.setCollisionFromCollisionGroup();
     stageLayer.setCollisionFromCollisionGroup();
+    DecorLayer.setCollisionFromCollisionGroup();
+    Decor2Layer.setCollisionFromCollisionGroup();
+    ReceptionLayer.setCollisionFromCollisionGroup();
+    PrivateZoneLayer.setCollisionFromCollisionGroup();
 
-    this.physics.world.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
-    this.cameras.main.setBounds(0, 0, this.map.widthInPixels, this.map.heightInPixels);
+    this.physics.world.setBounds(
+      0,
+      0,
+      this.map.widthInPixels,
+      this.map.heightInPixels
+    );
+    this.cameras.main.setBounds(
+      0,
+      0,
+      this.map.widthInPixels,
+      this.map.heightInPixels
+    );
     this.cameras.main.setZoom(1);
 
-    const offset = Phaser.Math.Between(-100, 100);
-    const spawnX = this.map.widthInPixels / 2 + offset;
-    const spawnY = this.map.heightInPixels / 2 + offset;
-    const avatarKey = this.getAvatarKey(this.avatar);
+    const spawnObject = this.map
+      .getObjectLayer("Spawn")
+      ?.objects.find((obj) => obj.name === "playerSpawn");
+    const baseX = spawnObject?.x ?? this.map.widthInPixels / 2;
+    const baseY = spawnObject?.y ?? this.map.heightInPixels / 2;
+    const offsetX = Phaser.Math.Between(-20, 20);
+    const offsetY = Phaser.Math.Between(-20, 20);
+    const spawnX = baseX + offsetX;
+    const spawnY = baseY + offsetY;
 
+    const avatarKey = this.getAvatarKey(this.avatar);
     this.player = this.physics.add.sprite(spawnX, spawnY, avatarKey);
-    this.player.setCollideWorldBounds(true);
-    this.player.setDepth(3);
+    this.player.setCollideWorldBounds(true).setDepth(3);
+
     this.physics.add.collider(this.player, wallLayer);
     this.physics.add.collider(this.player, stageLayer);
+    this.physics.add.collider(this.player, wallLayer2);
+    this.physics.add.collider(this.player, DecorLayer);
+    this.physics.add.collider(this.player, Decor2Layer);
+    this.physics.add.collider(this.player, ReceptionLayer);
+    this.physics.add.collider(this.player, PrivateZoneLayer);
+
     this.cameras.main.startFollow(this.player);
 
     if (!this.loadedAvatars.has(avatarKey)) {
@@ -91,9 +154,12 @@ export default class Map2Scene extends Phaser.Scene {
         this.myId = this.socket.id;
       });
 
-      this.socket.on("playersUpdate", (players: { [id: string]: PlayerData }) => {
-        this.updateOtherPlayers(players);
-      });
+      this.socket.on(
+        "playersUpdate",
+        (players: { [id: string]: PlayerData }) => {
+          this.updateOtherPlayers(players);
+        }
+      );
 
       this.socket.emit("move", {
         x: this.player.x,
@@ -101,20 +167,47 @@ export default class Map2Scene extends Phaser.Scene {
         direction: this.lastDirection,
         avatar: this.avatar,
       });
+
+      this.anims.create({
+        key: "receptionist-idle",
+        frames: this.anims.generateFrameNumbers("receptionist", {
+          start: 0,
+          end: 6,
+        }),
+        frameRate: 4,
+        repeat: -1,
+      });
     }
 
     this.setupMonitorClick();
+    this.setupPrivateZones();
+    this.showReceptionistWelcome(); // 👈 Call welcome message once
 
     console.log("✅ Map2Scene created with:", {
       avatar: this.avatar,
       socketId: this.myId,
     });
+
+    const receptionistObj = this.map
+  .getObjectLayer("Receptionist")
+  ?.objects.find((obj) => obj.name === "npcReceptionist");
+
+if (receptionistObj) {
+  const receptionist = this.add
+    .sprite(receptionistObj.x! + 4, receptionistObj.y! +48 , "receptionist")
+    .setOrigin(0, 1) // aligns with Tiled's bottom-left origin
+    .setDepth(3);
+
+  receptionist.play("receptionist-idle");
+} else {
+  console.warn("🚨 Receptionist object not found in Tiled map.");
+}
   }
 
   update() {
     const speed = 250;
-    let vx = 0;
-    let vy = 0;
+    let vx = 0,
+      vy = 0;
 
     if (this.cursors.left?.isDown) {
       vx = -speed;
@@ -224,9 +317,9 @@ export default class Map2Scene extends Phaser.Scene {
           .setOrigin(0, 0)
           .setInteractive({ useHandCursor: true });
 
-        monitorZone.on("pointerdown", () => {
-          this.showVideo("/assets/video.mp4");
-        });
+        monitorZone.on("pointerdown", () =>
+          this.showVideo("/assets/video.mp4")
+        );
 
         monitorZone.on("pointerover", (pointer: Phaser.Input.Pointer) => {
           const tooltip = document.createElement("div");
@@ -247,15 +340,19 @@ export default class Map2Scene extends Phaser.Scene {
 
         monitorZone.on("pointerout", () => {
           const tooltip = document.getElementById("monitor-tooltip");
-          if (tooltip) tooltip.remove();
+          tooltip?.remove();
         });
       }
     });
   }
 
   private showVideo(src: string) {
-    const videoElement = document.getElementById("monitor-video") as HTMLVideoElement;
-    const closeButton = document.getElementById("monitor-close") as HTMLButtonElement;
+    const videoElement = document.getElementById(
+      "monitor-video"
+    ) as HTMLVideoElement;
+    const closeButton = document.getElementById(
+      "monitor-close"
+    ) as HTMLButtonElement;
 
     if (videoElement && closeButton) {
       videoElement.src = src;
@@ -270,4 +367,76 @@ export default class Map2Scene extends Phaser.Scene {
       };
     }
   }
+
+  private setupPrivateZones() {
+    const zones = this.map.getObjectLayer("PrivateAreas")?.objects;
+
+    zones?.forEach((zone) => {
+      const privateArea = this.add
+        .zone(zone.x!, zone.y!, zone.width!, zone.height!)
+        .setOrigin(0, 0);
+
+      this.physics.world.enable(privateArea);
+      (privateArea as any).playerInside = false;
+
+      if (!this.privateAreaText) {
+        this.privateAreaText = this.add
+          .text(16, 16, "", {
+            fontSize: "18px",
+            fill: "#fff",
+            backgroundColor: "#000",
+            padding: { x: 8, y: 4 },
+          })
+          .setScrollFactor(0)
+          .setDepth(1000)
+          .setVisible(false);
+      }
+
+      this.physics.add.overlap(this.player, privateArea, () => {
+        if (!(privateArea as any).playerInside) {
+          (privateArea as any).playerInside = true;
+          this.privateAreaText!.setText(
+            "🕵️ You entered a private area"
+          ).setVisible(true);
+        }
+      });
+
+      this.events.on("update", () => {
+        if (!this.physics.overlap(this.player, privateArea)) {
+          if ((privateArea as any).playerInside) {
+            (privateArea as any).playerInside = false;
+            this.privateAreaText!.setVisible(false);
+          }
+        }
+      });
+    });
+  }
+
+ private showReceptionistWelcome() {
+  const receptionistObj = this.map
+    .getObjectLayer("Receptionist")
+    ?.objects.find((obj) => obj.name === "npcReceptionist");
+
+  if (!receptionistObj) return;
+
+  // Adjust as needed to position it above the receptionist's head
+  const textX = receptionistObj.x! + 25;
+  const textY = receptionistObj.y! - 20; // slightly above the sprite
+
+  this.receptionistText = this.add
+    .text(textX, textY, "👋 Welcome to Metaverse!", {
+      fontSize: "16px",
+      fill: "#fff",
+      backgroundColor: "#333",
+      padding: { x: 8, y: 4 },
+    })
+    .setOrigin(0.5, 1) // center align horizontally
+    .setDepth(1000)
+    .setVisible(true);
+
+  this.time.delayedCall(3000, () => {
+    this.receptionistText?.destroy();
+  });
+}
+
 }
